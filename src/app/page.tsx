@@ -6,6 +6,7 @@ import { useExpenses } from "@/hooks/useExpenses";
 import { useExpenseModal } from "@/hooks/useExpenseModal";
 import { useDeleteExpense } from "@/hooks/useDeleteExpense";
 import { monthlyTotals, summarize } from "@/lib/analytics";
+import { downloadCSV } from "@/lib/csv";
 import { SummaryCards } from "@/components/SummaryCards";
 import { MonthlyChart } from "@/components/MonthlyChart";
 import { CategoryBreakdown } from "@/components/CategoryBreakdown";
@@ -22,9 +23,19 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500">An overview of where your money goes.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500">An overview of where your money goes.</p>
+        </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => downloadCSV(expenses)}
+          disabled={isLoading || expenses.length === 0}
+        >
+          Export Data
+        </button>
       </div>
 
       {error && <ErrorBanner message={error} />}
