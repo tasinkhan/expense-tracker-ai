@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
 }
 
 export function Modal({ open, onClose, title, children, size = "md" }: ModalProps) {
@@ -37,7 +37,7 @@ export function Modal({ open, onClose, title, children, size = "md" }: ModalProp
       <div className="absolute inset-0 animate-fade-in bg-slate-900/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
         ref={panelRef}
-        className={`relative w-full animate-slide-in rounded-t-2xl bg-white shadow-xl sm:rounded-2xl ${size === "sm" ? "sm:max-w-sm" : "sm:max-w-lg"}`}
+        className={`relative w-full animate-slide-in rounded-t-2xl bg-white shadow-xl sm:rounded-2xl ${size === "sm" ? "sm:max-w-sm" : size === "lg" ? "sm:max-w-3xl" : "sm:max-w-lg"}`}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
