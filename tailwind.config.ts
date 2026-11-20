@@ -16,10 +16,12 @@ const config: Config = {
       keyframes: {
         "slide-in": { from: { transform: "translateY(8px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "drawer-in": { from: { transform: "translateX(24px)", opacity: "0" }, to: { transform: "none", opacity: "1" } },
       },
       animation: {
         "slide-in": "slide-in 180ms ease-out",
         "fade-in": "fade-in 150ms ease-out",
+        "drawer-in": "drawer-in 220ms cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

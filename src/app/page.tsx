@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useExpenseModal } from "@/hooks/useExpenseModal";
 import { useDeleteExpense } from "@/hooks/useDeleteExpense";
@@ -11,20 +11,34 @@ import { MonthlyChart } from "@/components/MonthlyChart";
 import { CategoryBreakdown } from "@/components/CategoryBreakdown";
 import { ExpenseList } from "@/components/ExpenseList";
 import { EmptyState, ErrorBanner, Skeleton } from "@/components/States";
+import { DownloadIcon, ExportDrawer } from "@/components/export/ExportDrawer";
 
 export default function DashboardPage() {
   const { expenses, isLoading, error } = useExpenses();
   const { openEdit } = useExpenseModal();
   const { requestDelete, dialog } = useDeleteExpense();
+  const [exportOpen, setExportOpen] = useState(false);
 
   const summary = useMemo(() => summarize(expenses), [expenses]);
   const monthly = useMemo(() => monthlyTotals(expenses, 6), [expenses]);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-slate-500">An overview of where your money goes.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
+          <p className="mt-1 text-sm text-slate-500">An overview of where your money goes.</p>
+        </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => setExportOpen(true)}
+          disabled={isLoading || expenses.length === 0}
+          aria-haspopup="dialog"
+        >
+          <DownloadIcon />
+          Export…
+        </button>
       </div>
 
       {error && <ErrorBanner message={error} />}
@@ -64,6 +78,7 @@ export default function DashboardPage() {
         </>
       )}
       {dialog}
+      <ExportDrawer open={exportOpen} onClose={() => setExportOpen(false)} expenses={expenses} />
     </div>
   );
 }
