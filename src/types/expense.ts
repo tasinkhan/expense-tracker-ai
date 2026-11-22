@@ -17,11 +17,13 @@ export interface Expense {
   amount: number;
   category: Category;
   description: string;
+  /** Optional merchant / payee, trimmed. Absent on data saved before vendors existed. */
+  vendor?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export type ExpenseInput = Pick<Expense, "date" | "amount" | "category" | "description">;
+export type ExpenseInput = Pick<Expense, "date" | "amount" | "category" | "description" | "vendor">;
 
 export interface ExpenseFilters {
   search: string;

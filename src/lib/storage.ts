@@ -17,12 +17,23 @@ function isExpense(x: unknown): x is Expense {
   );
 }
 
-export function loadExpenses(): Expense[] {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+/** `vendor` is optional (older data has none). Keep a non-blank string, drop anything else rather than the expense. */
+function normalizeVendor(e: Expense): Expense {
+  const { vendor, ...rest } = e;
+  const v = typeof vendor === "string" ? vendor.trim() : "";
+  return v ? { ...rest, vendor: v } : rest;
+}
+
+/** Parse the raw stored JSON. Throws if the data is unreadable; silently skips malformed entries. */
+export function parseStoredExpenses(raw: string | null): Expense[] {
   if (!raw) return [];
   const parsed: unknown = JSON.parse(raw);
   if (!Array.isArray(parsed)) throw new Error("Stored data is not a list");
-  return parsed.filter(isExpense);
+  return parsed.filter(isExpense).map(normalizeVendor);
+}
+
+export function loadExpenses(): Expense[] {
+  return parseStoredExpenses(window.localStorage.getItem(STORAGE_KEY));
 }
 
 export function saveExpenses(expenses: Expense[]): void {

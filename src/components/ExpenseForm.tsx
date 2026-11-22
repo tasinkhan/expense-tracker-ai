@@ -15,8 +15,15 @@ interface Props {
 type Errors = Partial<Record<keyof ExpenseInput, string>>;
 
 const MAX_AMOUNT = 1_000_000;
+export const MAX_VENDOR_LENGTH = 60;
 
-export function validateExpense(v: { date: string; amount: string; category: string; description: string }): Errors {
+export function validateExpense(v: {
+  date: string;
+  amount: string;
+  category: string;
+  description: string;
+  vendor?: string;
+}): Errors {
   const errors: Errors = {};
   if (!v.date) errors.date = "Please choose a date.";
   else if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) errors.date = "Enter a valid date.";
@@ -35,6 +42,9 @@ export function validateExpense(v: { date: string; amount: string; category: str
   const desc = v.description.trim();
   if (!desc) errors.description = "Add a short description.";
   else if (desc.length > 120) errors.description = "Keep it under 120 characters.";
+
+  // Vendor is optional; an empty value simply means "no vendor".
+  if ((v.vendor ?? "").trim().length > MAX_VENDOR_LENGTH) errors.vendor = `Keep it under ${MAX_VENDOR_LENGTH} characters.`;
   return errors;
 }
 
@@ -44,6 +54,7 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onCancel }: Props)
     amount: initial ? initial.amount.toFixed(2) : "",
     category: (initial?.category ?? "Food") as string,
     description: initial?.description ?? "",
+    vendor: initial?.vendor ?? "",
   });
   const [touched, setTouched] = useState<Partial<Record<keyof ExpenseInput, boolean>>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -65,6 +76,8 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onCancel }: Props)
       amount: Math.round(Number(values.amount) * 100) / 100,
       category: values.category as Category,
       description: values.description.trim(),
+      // Always send the key so clearing the field removes a previously saved vendor.
+      vendor: values.vendor.trim() || undefined,
     });
   };
 
@@ -139,6 +152,25 @@ export function ExpenseForm({ initial, submitLabel, onSubmit, onCancel }: Props)
           onBlur={blur("description")}
           className={`input ${show("description") ? "input-error" : ""}`}
           aria-invalid={!!show("description")}
+        />
+      </Field>
+
+      <Field
+        label="Vendor (optional)"
+        error={show("vendor")}
+        htmlFor="vendor"
+        hint={`${values.vendor.trim().length}/${MAX_VENDOR_LENGTH}`}
+      >
+        <input
+          id="vendor"
+          placeholder="e.g. Starbucks"
+          value={values.vendor}
+          maxLength={80}
+          autoComplete="off"
+          onChange={(e) => set("vendor")(e.target.value)}
+          onBlur={blur("vendor")}
+          className={`input ${show("vendor") ? "input-error" : ""}`}
+          aria-invalid={!!show("vendor")}
         />
       </Field>
 

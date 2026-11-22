@@ -28,7 +28,10 @@ export function ExpenseList({ expenses, onEdit, onDelete }: Props) {
           {expenses.map((e) => (
             <tr key={e.id} className="group transition hover:bg-slate-50/70">
               <td className="whitespace-nowrap px-5 py-3.5 text-slate-500">{formatDate(e.date)}</td>
-              <td className="max-w-xs truncate px-5 py-3.5 font-medium text-slate-900">{e.description}</td>
+              <td className="max-w-xs px-5 py-3.5">
+                <p className="truncate font-medium text-slate-900">{e.description}</p>
+                {e.vendor && <p className="truncate text-xs text-slate-500">{e.vendor}</p>}
+              </td>
               <td className="px-5 py-3.5"><CategoryBadge category={e.category} /></td>
               <td className="whitespace-nowrap px-5 py-3.5 text-right font-semibold tabular-nums text-slate-900">{formatCurrency(e.amount)}</td>
               <td className="px-5 py-3.5">
@@ -45,6 +48,7 @@ export function ExpenseList({ expenses, onEdit, onDelete }: Props) {
           <li key={e.id} className="flex items-center gap-3 px-4 py-3.5">
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium text-slate-900">{e.description}</p>
+              {e.vendor && <p className="truncate text-xs text-slate-500">{e.vendor}</p>}
               <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
                 <CategoryBadge category={e.category} />
                 <span>{formatDate(e.date)}</span>
