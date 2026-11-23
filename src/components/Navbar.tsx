@@ -7,6 +7,7 @@ import { useExpenseModal } from "@/hooks/useExpenseModal";
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/expenses", label: "Expenses" },
+  { href: "/insights", label: "Insights" },
 ];
 
 export function Navbar() {

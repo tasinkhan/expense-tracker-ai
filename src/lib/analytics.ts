@@ -56,3 +56,35 @@ export function summarize(list: Expense[], now = new Date()) {
     byCategory: byCat,
   };
 }
+
+/** Totals by category for one calendar month (`YYYY-MM`), largest first. */
+export function monthCategoryTotals(list: Expense[], month: string) {
+  return totalsByCategory(list.filter((e) => monthKey(e.date) === month));
+}
+
+/**
+ * Budget streak: consecutive days, ending today, on which spending stayed within the
+ * daily share of the monthly budget (monthly budget ÷ days in that month). Days with
+ * no expenses count as under budget. Counting stops at the earliest recorded expense,
+ * so an empty history never yields an endless streak. Returns 0 if today is over budget.
+ */
+export function budgetStreak(list: Expense[], monthlyBudget: number, now = new Date()): number {
+  if (!list.length || !(monthlyBudget > 0)) return 0;
+  const daily = new Map<string, number>();
+  let earliest = list[0].date;
+  for (const e of list) {
+    daily.set(e.date, (daily.get(e.date) ?? 0) + e.amount);
+    if (e.date < earliest) earliest = e.date;
+  }
+  let streak = 0;
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let i = 0; i < 3660; i++) {
+    const iso = toISODate(day);
+    if (iso < earliest) break;
+    const daysInMonth = new Date(day.getFullYear(), day.getMonth() + 1, 0).getDate();
+    if ((daily.get(iso) ?? 0) > monthlyBudget / daysInMonth + 0.005) break;
+    streak++;
+    day.setDate(day.getDate() - 1);
+  }
+  return streak;
+}

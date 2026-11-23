@@ -1,0 +1,177 @@
+TOP VENDORS: WORK SUMMARY
+=========================
+Branch:   feature/top-vendors
+Worktree: /home/alamkhantasin/expense-tracker-top-vendors
+Commit:   179ed61 "Add optional expense vendor and Top Vendors page" (one commit on top of 5a8ba5a; not pushed, not merged)
+
+
+1. WHAT WAS IMPLEMENTED
+-----------------------
+- Optional `vendor` on expenses, end to end: type, form field and validation, storage loading, sample data, and a
+  muted second line in the expense list.
+- New /vendors page ("Top vendors"), linked from the Navbar as "Vendors":
+  * Period selector with segmented buttons (aria-pressed, role="group"): This month / Last 30 days / This year / All time.
+    It defaults to "This month".
+  * Groups vendors ignoring case and extra whitespace, so "starbucks " and "Starbucks" are one vendor. The name shown
+    is the most common spelling (whitespace tidied). Ties go to the most recently used spelling, then alphabetical.
+  * Each vendor row shows: rank, name, total, share of the period total (% with a bar), number of expenses, last
+    purchase date, and main category (CategoryBadge, by highest spend).
+  * Ranked by total, then number of expenses, then name. Shows the top 10, with a "Show all N vendors" / "Show top 10"
+    toggle (aria-expanded) when there are more. The toggle resets when the period changes.
+  * Expenses without a vendor appear in one muted, unranked "No vendor" row at the bottom of the table, never among
+    ranked vendors. Below the table a note says "N expenses in this period have no vendor. Edit them to add one →"
+    and links to /expenses.
+  * States:
+    - loading skeleton
+    - ErrorBanner when `error` is set
+    - EmptyState with actions when there are no expenses
+    - "No vendors yet" when expenses exist but none has a vendor
+    - "No spending in this period"
+    - "No vendors in this period" when the period only has expenses without a vendor (the no-vendor note still shows)
+  * Layout: a table on md and wider; a ranked card list (<ol>) on phones, matching the ExpenseList pattern.
+    Accessibility: table caption (sr-only), row headers (th scope="row"), "Not ranked" sr-only text on the No vendor
+    row, and decorative bars marked aria-hidden.
+
+
+2. FILES
+--------
+Created:
+- src/lib/top-vendors.ts            Pure aggregation: VENDOR_PERIODS, cleanVendor, vendorKey, periodRange, filterByPeriod,
+                                    topVendors(expenses, period, now)
+- src/app/vendors/page.tsx          The /vendors page (period picker, ranked table/list, all states)
+- src/app/vendors/layout.tsx        Route metadata { title: "Top vendors" }, giving the tab title "Top vendors · Spendwise"
+- src/lib/top-vendors.test.ts       20 tests for the aggregation
+- src/lib/storage.test.ts           5 tests for loading stored data, including legacy data without vendor
+- src/components/ExpenseForm.test.ts 3 tests for the validateExpense vendor rules
+- vitest.config.ts                  Minimal vitest config; only maps the "@" alias to ./src
+Modified:
+- src/types/expense.ts              Adds `vendor?: string` to Expense; ExpenseInput now also picks "vendor"
+- src/components/ExpenseForm.tsx    Optional "Vendor (optional)" input (placeholder "e.g. Starbucks", n/60 counter);
+                                    exports MAX_VENDOR_LENGTH = 60; validateExpense takes an optional `vendor`
+- src/lib/storage.ts                New pure parseStoredExpenses(raw); loadExpenses delegates to it; vendor is normalised
+- src/lib/sample-data.ts            Each template has a `vendors` list that rotates deterministically (null = no vendor)
+- src/components/ExpenseList.tsx    Shows the vendor (muted, truncated) under the description, on desktop and mobile
+- src/components/Navbar.tsx         Adds the "Vendors" link, plus small phone-width fixes (see design decisions)
+- package.json / package-lock.json  vitest devDependency and the "test" script
+
+
+3. DEPENDENCIES
+---------------
+- devDependency: "vitest": "2.1.8" (exact pin, installed with npm i -D vitest@2.1.8 --save-exact)
+- New script: "test": "vitest run"
+- No runtime dependencies were added.
+
+
+4. DATA MODEL CHANGE AND BACKWARD COMPATIBILITY
+-----------------------------------------------
+- `Expense.vendor?: string` is optional. The storage key ("expense-tracker:v1") and the shape of everything else are
+  unchanged, so this needs no migration or version bump.
+- Loading (parseStoredExpenses):
+  * Entries without a vendor load unchanged.
+  * A string vendor is trimmed.
+  * A blank, null or non-string vendor is removed, and the expense itself is kept.
+  * Existing shape checks (isExpense) are unchanged: malformed entries are still skipped and non-list data still throws.
+- Saving:
+  * The form always sends `vendor: trimmed || undefined`. Because updateExpense does { ...e, ...input }, clearing the
+    field on edit removes a saved vendor.
+  * JSON.stringify drops undefined keys, so an empty vendor is never saved as "".
+- Older code reading newer data simply ignores the extra `vendor` key.
+- CSV export (src/lib/csv.ts) is intentionally unchanged: the columns are still Date, Category, Description, Amount.
+  FOLLOW-UP: decide whether to add a Vendor column. That changes an existing file format, so it may affect anyone
+  re-importing the CSV.
+- Other follow-ups:
+  * Make the Expenses search (filterExpenses in src/lib/analytics.ts) match vendor too. I left analytics.ts alone to
+    avoid conflicts with feature/top-categories.
+  * Add vendor autocomplete (a datalist of known vendors) to the form.
+
+
+5. TESTING
+----------
+Approach: the logic is in pure functions that take `now` as a parameter, tested with vitest in the node environment
+and a fixed date: new Date(2026, 2, 15, 12:00 local). No DOM or React rendering tests.
+Tests are co-located with the code (*.test.ts).
+
+Covered:
+- Normalisation: trimming and collapsing whitespace; null, undefined and blank values; case-insensitive key.
+- Grouping: case and whitespace variants count as one vendor.
+- Display name: most common spelling; ties go to the most recent spelling.
+- Last purchase date; main category by spend, with ties resolved in CATEGORIES order.
+- No-vendor handling: missing, "" and whitespace-only vendors stay out of the ranking; noVendor totals and share;
+  noVendor is null when absent; a period with only vendor-less expenses.
+- Ranking: total, then count, then name.
+- Periods: exact inclusive ranges for each period; a leap-year February; last-30-days across a year boundary;
+  filtering on the exact boundary days (the day before the window, first day, today, Jan 1, Dec 31 of last year);
+  only expenses in the period are aggregated.
+- Shares and rounding: totals rounded to cents (0.1 + 0.2 gives 0.3); shares to 1 decimal (33.3 x 3); no-vendor
+  spending included in the share denominator.
+- Empty input, and a period with no matching expenses.
+- validateExpense: vendor is optional ("", whitespace); exactly 60 characters passes, also after trimming;
+  61 characters gives "Keep it under 60 characters."
+- Storage: null or "" input; legacy data loads deep-equal with no vendor key; vendor trimmed; blank, null or numeric
+  vendor dropped but the expense kept; malformed entries skipped; non-list or invalid JSON throws.
+
+Actual results (in the worktree, after the final change):
+- npx vitest run   -> 3 test files, 28 tests, all passed (top-vendors 20, storage 5, ExpenseForm 3).
+                      Vite prints a notice, "The CJS build of Vite's Node API is deprecated". It appears because
+                      package.json has no "type": "module" and the config file is .ts, not .mts. I kept the required
+                      name vitest.config.ts so it matches the other branch. The notice is harmless.
+- npx tsc --noEmit -> no errors
+- npx next lint    -> "No ESLint warnings or errors"
+- npx next build   -> "Compiled successfully". All 6 static pages were generated, including the new route:
+                      /vendors at 3.8 kB, 105 kB First Load JS.
+- The app was not started (no dev or start server), so the UI was checked only by build and type checks, not in a
+  browser.
+
+
+6. DESIGN DECISIONS
+-------------------
+- Period bounds are inclusive YYYY-MM-DD string comparisons, like filterExpenses, using local dates (toISODate).
+  * "This month" and "This year" are whole calendar ranges (e.g. Mar 1-31, Jan 1-Dec 31).
+  * "Last 30 days" is today minus 29 days through today, which is 30 days including today.
+  * The form blocks future dates, so the open upper bound of the calendar periods doesn't matter in practice.
+- Share is measured against the whole period total, including expenses without a vendor, so vendor shares plus the
+  no-vendor share add up to about 100%. Totals are rounded to cents like sumAmounts. Shares are rounded to 1 decimal
+  and shown with toFixed(1).
+- The No vendor row is always last and unranked, with muted styling and a grey bar. The ranked vendors always use the
+  brand colour. Category colours appear only on the CategoryBadge, which follows the existing rule that colour follows
+  category, never rank.
+- The form trims the vendor and keeps the user's casing and inner spacing. Grouping collapses whitespace and ignores
+  case, so the saved data stays exactly as the user typed it.
+- The vendor input has maxLength=80, not 60, so a pasted long value shows the validation message instead of being cut
+  off silently. This mirrors the description field (maxLength 140 with a 120 limit).
+- The vendor field is labelled "Vendor (optional)" because it is the only optional field in the form.
+- The "No vendors yet" state checks all expenses, not only the selected period. It replaces the period picker because
+  switching periods can't help in that case.
+- Navbar at phone width: three links plus the Add button would have overflowed at 375px. Changes:
+  * links use px-2 below sm (px-3 from sm up)
+  * the header gap is gap-2 below sm
+  * the nav has min-w-0 overflow-x-auto as a safety net
+  * the Add button is icon-only below sm, with aria-label="Add expense"; the separate "Add" span was removed
+  At sm and wider, nothing changes visually.
+- parseStoredExpenses was taken out of loadExpenses so storage can be tested without a DOM or localStorage mock.
+
+
+7. INTEGRATION NOTES / EXPECTED MERGE CONFLICTS WITH feature/top-categories
+---------------------------------------------------------------------------
+- package.json "scripts": both branches add "test": "vitest run" after "typecheck". Expect a small textual conflict or
+  a duplicate line; keep one. "devDependencies": both add "vitest": "2.1.8" at the same position, so it is likely
+  identical or a trivial conflict.
+- package-lock.json: both add the same vitest 2.1.8 tree. If it conflicts, take either side, then run `npm install`
+  (or `npm i -D vitest@2.1.8 --save-exact`) to regenerate, and commit.
+- vitest.config.ts: an add/add conflict if the contents differ. Mine only aliases "@" to ./src via
+  fileURLToPath(new URL("./src", import.meta.url)). If theirs is the same shape, keep either. If theirs adds
+  options (environment, include), keep theirs and make sure the alias is there. My tests are *.test.ts under src/ and
+  need only the node environment.
+- src/components/Navbar.tsx: CONFLICT EXPECTED. Both branches add an entry to LINKS after "/expenses". Keep both, in
+  the order Dashboard, Expenses, then the two new links. I also changed the header gap, link padding, nav overflow
+  and Add button classes (section 6). With four links, check the phone width again. The icon-only Add button below sm
+  and overflow-x-auto should still prevent page overflow, but the nav may need to scroll horizontally or use shorter
+  labels.
+- src/lib/analytics.ts: this branch does not touch it, so no conflict. My aggregation is in its own module,
+  src/lib/top-vendors.ts.
+- src/types/expense.ts: this branch adds `vendor?` and changes ExpenseInput. If top-categories edits nearby lines
+  (e.g. CATEGORIES or new types), resolving it should be easy. Any code on that branch that builds Expense objects
+  still compiles because vendor is optional.
+- Test files: there are no shared test file names unless the other branch also adds tests next to ExpenseForm or
+  storage. If it does, merge the describe blocks.
+- After merging: run npm install, npx tsc --noEmit, npx next lint, npx vitest run and npx next build.

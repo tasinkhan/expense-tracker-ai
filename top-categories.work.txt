@@ -1,0 +1,119 @@
+TOP CATEGORIES FEATURE - WORK SUMMARY
+=====================================
+Worktree: /home/alamkhantasin/expense-tracker-top-categories
+Branch:   feature/top-categories
+Commit:   fe8a1e2 "Add Top Categories page ranking spend by category per period" (on top of 5a8ba5a)
+Not pushed, not merged.
+
+WHAT WAS IMPLEMENTED
+--------------------
+- New route /categories ("Top categories", browser title "Top categories · Spendwise"), linked from the
+  Navbar as "Categories".
+- Segmented period toggle: This month / Last 30 days / This year / All time. Real <button>s with
+  aria-pressed, wrapped in role="group" aria-label="Period". 2x2 grid on phones, 4 in a row from sm up.
+- Period total card: total spent, number of expenses, and the date range (e.g. "Nov 1, 2026 – Nov 22, 2026",
+  or "Every expense you've recorded" for All time). aria-live="polite" so period changes are announced.
+- Ranked list (<ol>) for each category with spending: rank (with sr-only "Rank" prefix), CategoryBadge
+  (icon + name), total, share % (1 decimal), a share bar in the category color (role="img" with
+  aria-label "Food: 42.5% of this month spending"; bar width = share of period total), number of expenses
+  and average per expense. Zero-spend categories are omitted.
+- States: loading skeleton (aria-busy), EmptyState reused when there are no expenses at all,
+  "No spending in this period" card with a "View all time" button, ErrorBanner whenever `error` is set
+  (shown above the content, like the other pages).
+
+FILES
+-----
+Created:
+- src/lib/top-categories.ts          Pure logic: Period type, PERIODS list, periodRange(period, now),
+                                     topCategories(expenses, period, now) -> { from, to, total, count, rows }.
+- src/lib/top-categories.test.ts     11 vitest unit tests for the above.
+- src/app/categories/layout.tsx      Sets metadata title "Top categories" (same pattern as expenses/layout.tsx).
+- src/app/categories/page.tsx        Client page: period toggle, total card, ranked list, all UI states.
+- vitest.config.ts                   Minimal vitest config: "@" alias -> ./src, node environment.
+Modified:
+- src/components/Navbar.tsx          Added { href: "/categories", label: "Categories" } to LINKS; tightened
+                                     spacing on phones (header gap-2 sm:gap-4, links px-2 sm:px-3, shrink-0 on
+                                     logo/links/Add button, nav min-w-0 overflow-x-auto) so three links + Add
+                                     fit at ~375px instead of overflowing the page.
+- package.json                       devDependency "vitest": "2.1.8" (exact) and script "test": "vitest run".
+- package-lock.json                  Lockfile update from `npm i -D vitest@2.1.8 --save-exact`.
+
+DEPENDENCIES ADDED
+------------------
+- vitest 2.1.8 (devDependency, exact pin). No runtime dependencies added.
+
+TESTING
+-------
+Approach: unit tests on the pure aggregation module with a fixed `now` (new Date(2026, 10, 22, 12) — local
+mid-day so dates are timezone-safe). Covered:
+- periodRange: all four periods; month/year edges (Jan 1 -> this month/this year = single day; last 30 days
+  crossing into the previous year; leap-year Feb), PERIODS order.
+- topCategories: empty input for every period; ranking order desc with zero-spend categories omitted;
+  deterministic tie-break by CATEGORIES order; inclusive from/to boundaries for each period and exclusion of
+  the day before / future dates; counts and averages rounded to cents (20.01/3 -> 6.67); float drift
+  (0.1+0.2 -> 0.3, total 0.6) incl. tie after rounding; shares summing to 100 (thirds, single category = 100);
+  shares/averages computed only from in-period expenses.
+
+Actual results:
+- npx vitest run   -> 1 file, 11 tests passed (vitest v2.1.8). Vite prints its generic "The CJS build of
+                      Vite's Node API is deprecated" notice because package.json has no "type": "module" and the
+                      config is required to be vitest.config.ts; harmless. Renaming to vitest.config.mts would
+                      silence it, but both branches were asked to use vitest.config.ts, so left as is.
+- npx tsc --noEmit -> no errors.
+- npx next lint    -> "No ESLint warnings or errors".
+- npx next build   -> compiled successfully; routes: / 5.15 kB, /categories 3.15 kB (95.6 kB first load),
+                      /expenses 5.06 kB, all static. The app was not started.
+
+DESIGN DECISIONS
+----------------
+- Default period = "This month". The Dashboard already shows an all-time category breakdown, so the new page
+  is most useful for the current, actionable period ("where is my money going right now"). Downside (early in
+  the month there may be nothing yet) is handled by the "No spending in this period" state with a one-click
+  "View all time" button.
+- Periods end today and are inclusive, using exactly the same ranges as the FilterBar presets (This month =
+  1st..today, Last 30 days = today-29..today, This year = Jan 1..today), so numbers match the Expenses page
+  when the same preset is applied. All time is unbounded (includes any future-dated rows; the form forbids
+  future dates anyway).
+- Reuse: filterExpenses (with EMPTY_FILTERS + from/to) for the period filter and sumAmounts for every total
+  so money is rounded to cents exactly like elsewhere. totalsByCategory was deliberately NOT used for ranking:
+  it sorts on unrounded float sums, so exact ties like 0.1+0.2 vs 0.3 could rank inconsistently with the
+  displayed (rounded) totals; the new code ranks on rounded totals with a stable CATEGORIES-order tie-break.
+- share is returned unrounded (0-100) so it sums to 100 within float precision; the UI formats it with one
+  decimal. average is rounded to cents in the lib.
+- `now` is a parameter (defaulting to new Date()) on both periodRange and topCategories for testability.
+  The page calls topCategories during render only after loading completes; the static prerender shows the
+  skeleton, so no hydration mismatch from the date.
+- Bar width represents share of the period total (requirement), unlike CategoryBreakdown which scales to the
+  max; colors come from CATEGORY_STYLES (by category, never by rank) and the % is always shown as text.
+- Kept it simple: no new shared components; the period toggle lives in the page.
+
+INTEGRATION NOTES (merging with feature/top-vendors)
+----------------------------------------------------
+Expected conflicts:
+1. src/components/Navbar.tsx LINKS array - both branches append a line after the Expenses entry. Resolve by
+   keeping both, e.g.:
+     { href: "/expenses", label: "Expenses" },
+     { href: "/categories", label: "Categories" },
+     { href: "/vendors", label: "Vendors" },   // whatever top-vendors uses
+   This branch also changed className lines in Navbar (phone spacing, shrink-0, overflow-x-auto). If
+   top-vendors did not touch those lines they merge cleanly; if it made its own spacing tweaks, pick one set.
+   With FOUR links the phone navbar becomes tighter still: the nav here is min-w-0 + overflow-x-auto so it
+   scrolls horizontally rather than breaking the page, but consider shorter labels or a menu later.
+2. package.json - both add "vitest": "2.1.8" to devDependencies and "test": "vitest run" to scripts. Contents
+   should be identical; git may still flag a conflict at the same hunk (also the trailing comma added after
+   "typecheck"). Resolve by keeping one copy of each.
+3. package-lock.json - both add vitest 2.1.8 and its tree. Easiest resolution: take either side, then run
+   `npm install` (or `npm i -D vitest@2.1.8 --save-exact`) to regenerate, and commit the result.
+4. vitest.config.ts - add/add conflict if both create it with different text. This one is:
+     import { fileURLToPath } from "node:url";
+     import { defineConfig } from "vitest/config";
+     export default defineConfig({
+       resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+       test: { environment: "node" },
+     });
+   Keep either version as long as it maps "@" -> ./src and includes both branches' test files (default
+   include pattern **/*.{test,spec}.?(c|m)[jt]s?(x) covers src/lib/*.test.ts).
+No conflict expected from the optional `vendor` field on Expense: this branch does not modify
+src/types/expense.ts, and its test fixture builds Expense objects without `vendor`, which remains valid when the
+field is optional. analytics.ts was not modified here. After merging, re-run: npx tsc --noEmit, npx next lint,
+npx vitest run, npx next build.
